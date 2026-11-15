@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { matchWords, wordScore } from "./score.js";
+import { matchWords, wordScore } from "./score";
 
 test("exact words pass", () => {
   expect(wordScore("She sells sea shells.", "She sells sea shells.")).toBe(1);

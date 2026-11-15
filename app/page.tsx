@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { matchWords } from "../lib/score";
 
-const TWISTERS = [
+const TWISTERS: string[] = [
   "She sells sea shells by the sea shore.",
   "Peter Piper picked a peck of pickled peppers.",
   "How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
@@ -22,39 +22,59 @@ const PHASES = {
   init: "Loading the speech model…",
 };
 
+type Phase = keyof typeof PHASES;
+type Busy = "mic" | "checking" | null;
+type Progress = { loaded: number; total: number };
+type Result = { text: string; pct: number; pass: boolean };
+type Mic = {
+  stream: MediaStream;
+  context: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  node: AudioWorkletNode;
+  gain: GainNode;
+};
+type WorkerMessage =
+  | { type: "progress"; loaded: number; total: number }
+  | { type: "status"; phase: Phase }
+  | { type: "ready" }
+  | { type: "stream"; text: string; result: { pending?: string } }
+  | { type: "stream-final"; text: string }
+  | { type: "error"; message: string };
+
 export default function Page() {
   const [ready, setReady] = useState(false);
-  const [phase, setPhase] = useState("starting");
-  const [progress, setProgress] = useState({ loaded: 0, total: 0 });
+  const [phase, setPhase] = useState<Phase>("starting");
+  const [progress, setProgress] = useState<Progress>({ loaded: 0, total: 0 });
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [round, setRound] = useState(0);
   const [committed, setCommitted] = useState("");
   const [pending, setPending] = useState("");
-  const [matched, setMatched] = useState([]);
-  const [result, setResult] = useState(null);
+  const [matched, setMatched] = useState<boolean[]>([]);
+  const [result, setResult] = useState<Result | null>(null);
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState("");
 
-  const workerRef = useRef(null);
+  const workerRef = useRef<Worker | null>(null);
   const roundRef = useRef(0);
-  const micRef = useRef(null);
+  const micRef = useRef<Mic | null>(null);
   const blockRef = useRef(new Float32Array(CHUNK_SAMPLES));
   const offsetRef = useRef(0);
   const recordingRef = useRef(false);
   const streamingRef = useRef(false);
   const spokenRef = useRef(false);
   const silenceRef = useRef(0);
-  const stopTimerRef = useRef(null);
-  const stopRef = useRef(() => {});
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const worker = new Worker("/speech-worker.js");
     workerRef.current = worker;
 
-    worker.onmessage = ({ data }) => {
+    worker.onmessage = (event: MessageEvent) => {
+      const data = event.data as WorkerMessage;
       if (data.type === "progress") setProgress({ loaded: data.loaded, total: data.total });
       else if (data.type === "status") setPhase(data.phase);
       else if (data.type === "ready") setReady(true);
@@ -133,13 +153,20 @@ export default function Page() {
   useEffect(
     () => () => {
       cleanupAudio();
-      clearTimeout(stopTimerRef.current);
+      clearStopTimer();
     },
     [],
   );
 
-  function cleanupAudio() {
-    clearTimeout(stopTimerRef.current);
+  function clearStopTimer() {
+    if (stopTimerRef.current !== null) {
+      clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+  }
+
+  function cleanupAudio(): void {
+    clearStopTimer();
     const mic = micRef.current;
     micRef.current = null;
     if (mic?.node) mic.node.port.onmessage = null;
@@ -154,7 +181,7 @@ export default function Page() {
     setRecording(false);
   }
 
-  async function startRecording() {
+  async function startRecording(): Promise<void> {
     if (busy || recordingRef.current) return;
     setError("");
     setResult(null);
@@ -163,27 +190,30 @@ export default function Page() {
     setMatched([]);
     setBusy("mic");
 
-    let stream;
+    let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       setBusy(null);
+      const name = err && typeof err === "object" && "name" in err ? String(err.name) : "";
       setError(
-        err?.name === "NotAllowedError"
+        name === "NotAllowedError"
           ? "Microphone access was denied. Allow it in your browser and try again."
           : "Could not access the microphone.",
       );
       return;
     }
 
-    let context;
+    let context: AudioContext | undefined;
     try {
-      const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio) throw new Error("This browser cannot capture live audio.");
+      const AudioConstructor =
+        window.AudioContext ||
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioConstructor) throw new Error("This browser cannot capture live audio.");
       try {
-        context = new Audio({ sampleRate: 16000 });
+        context = new AudioConstructor({ sampleRate: 16000 });
       } catch {
-        context = new Audio();
+        context = new AudioConstructor();
       }
       await context.resume();
       if (!context.audioWorklet) throw new Error("This browser cannot capture live audio.");
@@ -202,10 +232,14 @@ export default function Page() {
       spokenRef.current = false;
       silenceRef.current = 0;
       const rate = context.sampleRate;
-      node.port.onmessage = ({ data }) => pushSamples(resample(data, rate));
+      node.port.onmessage = (event: MessageEvent) =>
+        pushSamples(resample(event.data as Float32Array, rate));
+
+      const worker = workerRef.current;
+      if (!worker) throw new Error("The speech engine is not ready.");
 
       micRef.current = { stream, context, source, node, gain };
-      workerRef.current.postMessage({ type: "stream-start", keywords: TWISTERS[roundRef.current] });
+      worker.postMessage({ type: "stream-start", keywords: TWISTERS[roundRef.current] });
       streamingRef.current = true;
       recordingRef.current = true;
       setBusy(null);
@@ -217,14 +251,14 @@ export default function Page() {
       stream.getTracks().forEach((track) => track.stop());
       if (streamingRef.current) {
         streamingRef.current = false;
-        workerRef.current.postMessage({ type: "stream-stop" });
+        workerRef.current?.postMessage({ type: "stream-stop" });
       }
       setBusy(null);
-      setError(err.message || "Could not start live audio capture.");
+      setError(err instanceof Error ? err.message : "Could not start live audio capture.");
     }
   }
 
-  function pushSamples(samples) {
+  function pushSamples(samples: Float32Array): void {
     if (!recordingRef.current) return;
 
     let energy = 0;
@@ -242,6 +276,9 @@ export default function Page() {
     }
 
     let at = 0;
+    const worker = workerRef.current;
+    if (!worker) return;
+
     while (at < samples.length) {
       const take = Math.min(CHUNK_SAMPLES - offsetRef.current, samples.length - at);
       blockRef.current.set(samples.subarray(at, at + take), offsetRef.current);
@@ -250,17 +287,17 @@ export default function Page() {
 
       if (offsetRef.current === CHUNK_SAMPLES) {
         const block = blockRef.current;
-        workerRef.current.postMessage({ type: "stream-chunk", pcm: block }, [block.buffer]);
+        worker.postMessage({ type: "stream-chunk", pcm: block }, [block.buffer]);
         blockRef.current = new Float32Array(CHUNK_SAMPLES);
         offsetRef.current = 0;
       }
     }
   }
 
-  function stopRecording() {
+  function stopRecording(): void {
     if (!recordingRef.current) return;
     recordingRef.current = false;
-    clearTimeout(stopTimerRef.current);
+    clearStopTimer();
 
     const leftover = offsetRef.current;
     const block = leftover ? blockRef.current.slice(0, leftover) : null;
@@ -270,8 +307,9 @@ export default function Page() {
     cleanupAudio();
     if (streamingRef.current) {
       streamingRef.current = false;
-      if (block) workerRef.current.postMessage({ type: "stream-chunk", pcm: block }, [block.buffer]);
-      workerRef.current.postMessage({ type: "stream-stop" });
+      const worker = workerRef.current;
+      if (block) worker?.postMessage({ type: "stream-chunk", pcm: block }, [block.buffer]);
+      worker?.postMessage({ type: "stream-stop" });
     }
     setBusy("checking");
   }
@@ -460,7 +498,7 @@ export default function Page() {
   );
 }
 
-function resample(samples, rate) {
+function resample(samples: Float32Array, rate: number): Float32Array {
   if (rate === 16000) return samples;
   const length = Math.round((samples.length * 16000) / rate);
   const output = new Float32Array(length);

@@ -1,4 +1,4 @@
-const clean = (text) =>
+const clean = (text: string): string[] =>
   text
     .toLowerCase()
     .normalize("NFD")
@@ -7,7 +7,7 @@ const clean = (text) =>
     .split(/\s+/)
     .filter(Boolean);
 
-const distance = (a, b) => {
+const distance = (a: string, b: string): number => {
   const row = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     let previous = row[0];
@@ -21,10 +21,15 @@ const distance = (a, b) => {
   return row[b.length];
 };
 
-const similar = (a, b) => 1 - distance(a, b) / Math.max(a.length, b.length, 1);
+const similar = (a: string, b: string): number => 1 - distance(a, b) / Math.max(a.length, b.length, 1);
+
+export type WordMatch = {
+  matched: boolean[];
+  score: number;
+};
 
 /** Which twister words were heard, in order, and the share that matched. */
-export function matchWords(twister, heard) {
+export function matchWords(twister: string, heard: string): WordMatch {
   const target = clean(twister);
   const spoken = clean(heard);
   const rows = target.length;
@@ -40,7 +45,7 @@ export function matchWords(twister, heard) {
     }
   }
 
-  const matched = new Array(rows).fill(false);
+  const matched = new Array<boolean>(rows).fill(false);
   let i = rows;
   let j = columns;
   while (i > 0 && j > 0) {
@@ -58,4 +63,4 @@ export function matchWords(twister, heard) {
   return { matched, score: rows ? matched.filter(Boolean).length / rows : 0 };
 }
 
-export const wordScore = (twister, heard) => matchWords(twister, heard).score;
+export const wordScore = (twister: string, heard: string): number => matchWords(twister, heard).score;

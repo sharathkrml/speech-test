@@ -19,7 +19,7 @@ bun test
 
 ## How it works
 
-- `public/speech-worker.js` runs Cactus's WebAssembly engine in a Web Worker.
+- `public/speech-worker.js` runs Cactus's WebAssembly engine in a Web Worker. The worker and AudioWorklet files stay plain JavaScript because the browser loads them directly, outside the Next.js compiler.
 - It loads `public/cactus.js` and `public/cactus.wasm` (the engine), then `public/whistle.cact` (the Whistle speech-to-text weights).
 - `public/pcm-worklet.js` captures the microphone as raw audio, resampled to 16 kHz mono, and the page sends one-second chunks to the worker.
 - The worker uses Whistle's streaming transcription API, so committed words appear and fill the twister while you speak.
