@@ -1,0 +1,271 @@
+:root {
+  color-scheme: dark;
+  --bg: #0d0f12;
+  --card: #171a1f;
+  --line: #2a2f37;
+  --text: #f2f4f7;
+  --muted: #9aa3af;
+  --accent: #7ee787;
+  --bad: #ff8a8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  padding: 48px 20px;
+}
+
+.shell {
+  width: 100%;
+  max-width: 620px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.sub {
+  margin: 0 0 28px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.round {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.twister {
+  font-size: 1.6rem;
+  line-height: 1.5;
+  margin: 16px 0 14px;
+  animation: twister-in 0.35s ease;
+}
+
+@keyframes twister-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.twister .word {
+  display: inline-block;
+  padding-bottom: 2px;
+  color: #69717d;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.twister .word.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  animation: word-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes word-in {
+  0% {
+    opacity: 0.4;
+    transform: translateY(6px);
+  }
+  60% {
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fillbar {
+  height: 4px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  background: #242a31;
+  border-radius: 999px;
+}
+
+.fillbar > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.mic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  margin-bottom: 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bad);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.live {
+  min-height: 68px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: #12151a;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.live-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.pending {
+  color: #7f8895;
+}
+
+.primary {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  background: var(--accent);
+  color: #10210f;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  background: #343a43;
+  color: #8b93a0;
+  cursor: default;
+}
+
+.secondary {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 18px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.loading p {
+  margin: 0 0 10px;
+}
+
+.bar {
+  height: 8px;
+  margin: 4px 0 10px;
+  overflow: hidden;
+  background: #242a31;
+  border-radius: 999px;
+}
+
+.bar > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+.ready {
+  padding: 12px 0 20px;
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.center {
+  text-align: center;
+}
+
+.result {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.result.pass strong {
+  color: var(--accent);
+}
+
+.result.fail strong {
+  color: var(--bad);
+}
+
+.error {
+  margin-bottom: 16px;
+  color: var(--bad);
+  line-height: 1.5;
+}
+
+.big {
+  font-size: 1.6rem;
+  margin: 8px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .twister,
+  .twister .word,
+  .dot {
+    animation: none;
+  }
+
+  .fillbar > div {
+    transition: none;
+  }
+}
